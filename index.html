@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>拼豆辅助工具</title>
-    <link rel="shortcut icon" href="/image/favicon.png" type="image/png">
+    <link rel="shortcut icon" href="image/favicon.png" type="image/png">
     <link rel="stylesheet" href="https://ajax.aspnetcdn.com/ajax/bootstrap/4.3.1/css/bootstrap.min.css">
     <style>
         body {
@@ -56,12 +56,32 @@
         a:hover {
             text-decoration: none;
         }
+
+        /* 已有样式... */
+        .changelog-content {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        .changelog-content h1 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .changelog-content h2 {
+            font-size: 1.2rem;
+            margin-top: 1rem;
+            color: #007bff;
+        }
+        .changelog-content li {
+            margin-bottom: 0.5rem;
+        }
     </style>
 
     <script src="js/palette.v4.js"></script>
     <script src="https://ajax.aspnetcdn.com/ajax/jquery/jquery-3.4.1.min.js"></script>
     <script src="js/popper.min.js"></script>
     <script src='https://ajax.aspnetcdn.com/ajax/bootstrap/4.3.1/bootstrap.min.js'></script>
+    <script src="js/boxsets.js"></script>
+    <script src="js/changelog.js"></script>
 </head>
 
 <body>
@@ -71,6 +91,9 @@
             <div class="float-right mx-2" class='align-top'>
                 <img src='image/help.png' style='height: 2rem;' data-toggle="modal" data-target="#docModal"
                     title="帮助文档" />
+                <button class="btn btn-sm btn-outline-info mx-2" id="showChangelog" title="查看更新日志">
+                    更新日志
+                </button>
                 <span class="h6">中文/<a href="/index-en.html">Eng</a></span>
             </div>
         </div>
@@ -140,6 +163,20 @@
                             <div class="form-check form-check-inline">
                                 <input class="form-check-input function-color" type="checkbox" id="colorQ" value="Q">
                                 <label class="form-check-label" for="colorQ">温变色</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="row">
+                        <label class="col-sm-2 col-form-label">套盒模式：</label>
+                        <div class="col-sm-4">
+                            <div class="custom-control custom-switch">
+                                <input type="checkbox" class="custom-control-input" id="boxSetMode">
+                                <label class="custom-control-label" for="boxSetMode">启用套盒模式</label>
+                            </div>
+                            <div id="boxSetCheckboxes" class="mt-2" style="display:none;">
+                                <!-- 这里会动态添加套盒的复选框 -->
                             </div>
                         </div>
                     </div>
@@ -468,18 +505,74 @@
     // 在初始化代码部分添加
     var selectedFunctionColors = new Set(); // 存储选中的功能色
 
-    // 过滤调色板函数
+    // 在全局变量声明部分添加
+    var isBoxSetMode = false;
+    var selectedBoxSets = new Set(); // 存储选中的套盒
+
+    // 修改更新套盒选择器的函数
+    function updateBoxSetSelector() {
+        let brand = $('#paletteSelect').val();
+        let $boxSetCheckboxes = $('#boxSetCheckboxes');
+        $boxSetCheckboxes.empty();
+        
+        if (boxSets[brand]) {
+            for (let [code, info] of Object.entries(boxSets[brand])) {
+                $boxSetCheckboxes.append(`
+                    <div class="custom-control custom-checkbox">
+                        <input type="checkbox" class="custom-control-input box-set-checkbox" 
+                               id="boxSet_${code}" value="${code}">
+                        <label class="custom-control-label" for="boxSet_${code}">
+                            ${info.name} (${code})
+                        </label>
+                    </div>
+                `);
+            }
+            $('#boxSetMode').prop('disabled', false);
+        } else {
+            $('#boxSetMode').prop('disabled', true);
+            $('#boxSetMode').prop('checked', false);
+            isBoxSetMode = false;
+        }
+        
+        // 重新绑定复选框事件
+        $('.box-set-checkbox').on('change', function() {
+            let boxSetCode = $(this).val();
+            if (this.checked) {
+                selectedBoxSets.add(boxSetCode);
+            } else {
+                selectedBoxSets.delete(boxSetCode);
+            }
+            updatePaletteAndRefresh();
+        });
+    }
+
+    // 修改filterPalette函数中的套盒过滤部分
     function filterPalette(palette) {
-        // 如果selectedFunctionColors未定义，返回原始调色板
+        // 首先应用套盒模式过滤
+        if (isBoxSetMode && selectedBoxSets.size > 0) {
+            let brand = $('#paletteSelect').val();
+            let allowedColors = new Set();
+            
+            // 收集所有选中套盒中的颜色
+            for (let boxSetCode of selectedBoxSets) {
+                let boxSet = boxSets[brand][boxSetCode];
+                if (boxSet) {
+                    boxSet.colors.forEach(color => allowedColors.add(color));
+                }
+            }
+            
+            // 过滤调色板
+            palette = palette.filter(color => allowedColors.has(color.name));
+        }
+        
+        // 然后应用功能色过滤
         if (!selectedFunctionColors) {
             selectedFunctionColors = new Set();
         }
         
         if (selectedFunctionColors.size === 0) {
-            // 如果没有选择功能色，则过滤掉所有功能色
             return palette.filter(color => !['Y', 'R', 'P', 'Q'].some(prefix => color.name.startsWith(prefix)));
         } else {
-            // 如果选择了功能色，则只保留普通色和选中的功能色
             return palette.filter(color => {
                 const prefix = color.name.charAt(0);
                 return !['Y', 'R', 'P', 'Q'].includes(prefix) || selectedFunctionColors.has(prefix);
@@ -549,13 +642,13 @@
 
     // 修改调色板选择事件
     $('#paletteSelect').on('change', function() {
-        // 只在选择mard时显示功能色选项
-        if (this.value === 'mard') {
-            $('.function-color').closest('.form-group').show();
-        } else {
-            $('.function-color').prop('checked', false).closest('.form-group').hide();
-            selectedFunctionColors.clear();
-        }
+        updateBoxSetSelector();
+        // 重置套盒模式
+        $('#boxSetMode').prop('checked', false);
+        $('#boxSetCheckboxes').hide();
+        isBoxSetMode = false;
+        selectedBoxSets.clear();
+        // 更新调色板
         updatePaletteAndRefresh();
     });
 
@@ -2223,6 +2316,17 @@
 
     // 在页面加载完成后添加事件绑定
     $(document).ready(function() {
+        // 初始化更新日志管理器
+        const changelogManager = new ChangelogManager();
+        
+        // 绑定更新日志按钮点击事件
+        $('#showChangelog').on('click', function() {
+            changelogManager.showChangelog();
+        });
+        
+        // 检查是否需要显示更新日志
+        changelogManager.showChangelogIfNeeded();
+        
         // 从localStorage加载缺货色号
         let savedShortageColors = localStorage.getItem('shortageColors');
         if (savedShortageColors) {
@@ -2261,6 +2365,41 @@
                 });
             }
         });
+
+        // 品牌选择变化时更新套盒选择器
+        $('#paletteSelect').on('change', function() {
+            updateBoxSetSelector();
+            // 重置套盒模式
+            $('#boxSetMode').prop('checked', false);
+            $('#boxSetCheckboxes').hide();
+            isBoxSetMode = false;
+            selectedBoxSets.clear();
+            // 更新调色板
+            updatePaletteAndRefresh();
+        });
+        
+        // 套盒模式开关
+        $('#boxSetMode').on('change', function() {
+            isBoxSetMode = this.checked;
+            $('#boxSetCheckboxes').toggle(this.checked);
+            if (!this.checked) {
+                // 取消所有套盒选择
+                $('.box-set-checkbox').prop('checked', false);
+                selectedBoxSets.clear();
+                updatePaletteAndRefresh();
+            }
+        });
+        
+        // 套盒选择
+        $('#boxSetSelect').on('change', function() {
+            let brand = $('#paletteSelect').val();
+            let boxSetCode = $(this).val();
+            currentBoxSet = boxSetCode ? boxSets[brand][boxSetCode] : null;
+            updatePaletteAndRefresh();
+        });
+        
+        // 初始化套盒选择器
+        updateBoxSetSelector();
     });
 </script>
 
