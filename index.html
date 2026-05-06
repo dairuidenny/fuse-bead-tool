@@ -1395,12 +1395,20 @@
         let largeCtx = largeCanvas.getContext('2d'),
             viewCtx = viewCanvas.getContext('2d');
 
-        //重绘后重新计算一次尺寸，避免滚动条影响宽度，使canvas的width和实际宽度不一致
+        // ???????????????????????canvas?width????????
         viewCanvas.width = viewCanvas.clientWidth, viewCanvas.height = viewCanvas.clientHeight;
-        //切图时要计算两边的标尺长度
-        let viewImageData = largeCtx.getImageData(largeCanvasOffsetX, largeCanvasOffsetY, viewCanvas.width - 2 * (pixelSize + 1), viewCanvas.height - 2 * (pixelSize + 1));
-        viewCtx.putImageData(viewImageData, pixelSize + 1, pixelSize + 1);
-        //显示局部标尺
+        viewCtx.clearRect(0, 0, viewCanvas.width, viewCanvas.height);
+
+        // ???????largeCanvas????????
+        let drawW = Math.min(viewCanvas.width - 2 * (pixelSize + 1), largeCanvas.width - largeCanvasOffsetX);
+        let drawH = Math.min(viewCanvas.height - 2 * (pixelSize + 1), largeCanvas.height - largeCanvasOffsetY);
+
+        if (drawW > 0 && drawH > 0) {
+            let viewImageData = largeCtx.getImageData(largeCanvasOffsetX, largeCanvasOffsetY, drawW, drawH);
+            viewCtx.putImageData(viewImageData, pixelSize + 1, pixelSize + 1);
+        }
+
+        // ??????
         showPartRulers();
         isDrawingViewCanvas = false;
     }
@@ -1476,15 +1484,25 @@
         let viewCtx = viewCanvas.getContext('2d'),
             rulerX1Ctx = rulerX1Canvas.getContext('2d'), rulerX2Ctx = rulerX2Canvas.getContext('2d'),
             rulerY1Ctx = rulerY1Canvas.getContext('2d'), rulerY2Ctx = rulerY2Canvas.getContext('2d');
-        //绘制上�����标尺
-        viewCtx.putImageData(rulerX1Ctx.getImageData(largeCanvasOffsetX, 0, viewCanvas.width - 2 * (pixelSize + 1), pixelSize + 1), pixelSize + 1, 0);
-        //绘制下横标尺
-        viewCtx.putImageData(rulerX2Ctx.getImageData(largeCanvasOffsetX, 0, viewCanvas.width - 2 * (pixelSize + 1), pixelSize + 1), pixelSize + 1, viewCanvas.height - pixelSize - 1);
-        //绘制左竖标尺
-        viewCtx.putImageData(rulerY1Ctx.getImageData(0, largeCanvasOffsetY, pixelSize + 1, viewCanvas.height - 2 * (pixelSize + 1)), 0, pixelSize + 1);
-        //绘制右竖标尺
-        viewCtx.putImageData(rulerY2Ctx.getImageData(0, largeCanvasOffsetY, pixelSize + 1, viewCanvas.height - 2 * (pixelSize + 1)), viewCanvas.width - pixelSize - 1, pixelSize + 1);
-        //绘制四条标尺边线
+
+        // ?????????Canvas????????
+        let drawW = Math.min(viewCanvas.width - 2 * (pixelSize + 1), rulerX1Canvas.width - largeCanvasOffsetX);
+        let drawH = Math.min(viewCanvas.height - 2 * (pixelSize + 1), rulerY1Canvas.height - largeCanvasOffsetY);
+
+        if (drawW > 0) {
+            // ??????
+            viewCtx.putImageData(rulerX1Ctx.getImageData(largeCanvasOffsetX, 0, drawW, pixelSize + 1), pixelSize + 1, 0);
+            // ??????
+            viewCtx.putImageData(rulerX2Ctx.getImageData(largeCanvasOffsetX, 0, drawW, pixelSize + 1), pixelSize + 1, viewCanvas.height - pixelSize - 1);
+        }
+
+        if (drawH > 0) {
+            // ??????
+            viewCtx.putImageData(rulerY1Ctx.getImageData(0, largeCanvasOffsetY, pixelSize + 1, drawH), 0, pixelSize + 1);
+            // ??????
+            viewCtx.putImageData(rulerY2Ctx.getImageData(0, largeCanvasOffsetY, pixelSize + 1, drawH), viewCanvas.width - pixelSize - 1, pixelSize + 1);
+        }
+        // ????????
         viewCtx.beginPath();
         viewCtx.moveTo(0, pixelSize + 1 - 0.5);
         viewCtx.lineTo(viewCanvas.width, pixelSize + 1 - 0.5);
@@ -1852,15 +1870,14 @@
 
     //使canvas的尺寸与屏幕大小一致并且不超过当前大图尺寸
     function resizeViewCanvasFitWindow() {
-        if (!currentSliceImage) {//使用完整图的尺寸
-            viewCanvas.width = Math.min($(window).width() - scrollbarWidth - 4, (originalCanvas.width + 2) * (pixelSize + 1));
-            viewCanvas.height = Math.min($(window).height() - 8, (originalCanvas.height + 2) * (pixelSize + 1));
-        }
-        else//使用单个图块的尺寸
-        {
-            viewCanvas.width = Math.min($(window).width() - scrollbarWidth - 4, (pieceSize + 2) * (pixelSize + 1));
-            viewCanvas.height = Math.min($(window).height() - 8, (pieceSize + 2) * (pixelSize + 1));
-        }
+        let targetW = (currentSliceImage ? pieceSize + 2 : originalCanvas.width + 2) * (pixelSize + 1);
+        let targetH = (currentSliceImage ? pieceSize + 2 : originalCanvas.height + 2) * (pixelSize + 1);
+
+        // ???????????????????????????????
+        viewCanvas.width = Math.min($(window).width() - scrollbarWidth - 10, targetW);
+        // ????????????????????????????????
+        // ??????????????????????????? 15000 ???? 700 ???
+        viewCanvas.height = Math.min(15000, targetH);
     }
 
     //获取滚动条宽度
