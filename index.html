@@ -1395,11 +1395,11 @@
         let largeCtx = largeCanvas.getContext('2d'),
             viewCtx = viewCanvas.getContext('2d');
 
-        // ???????????????????????canvas?width????????
+        // 重绘后重新计算一次尺寸，避免滚动条影响宽度，使canvas的width和实际宽度不一致
         viewCanvas.width = viewCanvas.clientWidth, viewCanvas.height = viewCanvas.clientHeight;
         viewCtx.clearRect(0, 0, viewCanvas.width, viewCanvas.height);
 
-        // ???????largeCanvas????????
+        // 计算实际可以从largeCanvas抓取的宽度和高度，防止越界导致乱码
         let drawW = Math.min(viewCanvas.width - 2 * (pixelSize + 1), largeCanvas.width - largeCanvasOffsetX);
         let drawH = Math.min(viewCanvas.height - 2 * (pixelSize + 1), largeCanvas.height - largeCanvasOffsetY);
 
@@ -1408,7 +1408,7 @@
             viewCtx.putImageData(viewImageData, pixelSize + 1, pixelSize + 1);
         }
 
-        // ??????
+        // 显示局部标尺
         showPartRulers();
         isDrawingViewCanvas = false;
     }
@@ -1462,7 +1462,7 @@
                 rulerX2Ctx.fillText(x + 1, x * (pixelSize + 1) + ~~(pixelSize * 0.5), ~~(pixelSize * 0.5));
             }
         }
-        //纵坐标绘制横竖线和文字
+        //纵坐标绘制横短线和文字
         rulerY1Ctx.beginPath();
         rulerY2Ctx.beginPath();
         for (let y = 0; y <= height; y++) {//横线
@@ -1485,24 +1485,24 @@
             rulerX1Ctx = rulerX1Canvas.getContext('2d'), rulerX2Ctx = rulerX2Canvas.getContext('2d'),
             rulerY1Ctx = rulerY1Canvas.getContext('2d'), rulerY2Ctx = rulerY2Canvas.getContext('2d');
 
-        // ?????????Canvas????????
+        // 计算实际可以从标尺Canvas抓取的宽度和高度
         let drawW = Math.min(viewCanvas.width - 2 * (pixelSize + 1), rulerX1Canvas.width - largeCanvasOffsetX);
         let drawH = Math.min(viewCanvas.height - 2 * (pixelSize + 1), rulerY1Canvas.height - largeCanvasOffsetY);
 
         if (drawW > 0) {
-            // ??????
+            // 绘制上横标尺
             viewCtx.putImageData(rulerX1Ctx.getImageData(largeCanvasOffsetX, 0, drawW, pixelSize + 1), pixelSize + 1, 0);
-            // ??????
+            // 绘制下横标尺
             viewCtx.putImageData(rulerX2Ctx.getImageData(largeCanvasOffsetX, 0, drawW, pixelSize + 1), pixelSize + 1, viewCanvas.height - pixelSize - 1);
         }
 
         if (drawH > 0) {
-            // ??????
+            // 绘制左竖标尺
             viewCtx.putImageData(rulerY1Ctx.getImageData(0, largeCanvasOffsetY, pixelSize + 1, drawH), 0, pixelSize + 1);
-            // ??????
+            // 绘制右竖标尺
             viewCtx.putImageData(rulerY2Ctx.getImageData(0, largeCanvasOffsetY, pixelSize + 1, drawH), viewCanvas.width - pixelSize - 1, pixelSize + 1);
         }
-        // ????????
+        // 绘制四条标尺边线
         viewCtx.beginPath();
         viewCtx.moveTo(0, pixelSize + 1 - 0.5);
         viewCtx.lineTo(viewCanvas.width, pixelSize + 1 - 0.5);
@@ -1873,10 +1873,10 @@
         let targetW = (currentSliceImage ? pieceSize + 2 : originalCanvas.width + 2) * (pixelSize + 1);
         let targetH = (currentSliceImage ? pieceSize + 2 : originalCanvas.height + 2) * (pixelSize + 1);
 
-        // ???????????????????????????????
+        // 宽度仍然受限于窗口宽度（减去滚动条和边距），防止出现横向滚动条
         viewCanvas.width = Math.min($(window).width() - scrollbarWidth - 10, targetW);
-        // ????????????????????????????????
-        // ??????????????????????????? 15000 ???? 700 ???
+        // 高度不再受限于窗口高度，允许完整显示内容，让用户通过页面滚动查看
+        // 为防止极端大图导致浏览器渲染崩溃，设置一个合理的上限（例如 15000 像素，约 700 颗豆）
         viewCanvas.height = Math.min(15000, targetH);
     }
 
